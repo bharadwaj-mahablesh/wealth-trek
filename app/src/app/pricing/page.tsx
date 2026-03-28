@@ -1,19 +1,24 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Navigation } from "@/components/Navigation";
-import { SignUpButton } from "@clerk/nextjs";
-import { motion } from "framer-motion";
-import { ShieldCheck, Zap, FileDown } from "lucide-react";
+import { SignUpButton, useAuth } from "@clerk/nextjs";
+import { motion, AnimatePresence } from "framer-motion";
+import { ShieldCheck, Zap, FileDown, Loader2, CheckCircle2, XCircle } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { IconBadge } from "@/components/ui/icon-badge";
 import { PricingCard } from "@/components/ui/PricingCard";
 import { SectionContainer } from "@/components/ui/SectionContainer";
+import { useRazorpayCheckout } from "@/hooks/useRazorpayCheckout";
+import { useSubscription } from "@/hooks/useSubscription";
+import type { PlanId, BillingCycle } from "@/lib/pricing";
 
 interface PricingTier {
   name: string;
+  planId: PlanId;
   monthlyPrice: string;
   yearlyPrice: string;
   billing: string;
@@ -27,6 +32,7 @@ interface PricingTier {
 const pricingTiers: PricingTier[] = [
   {
     name: "Free",
+    planId: "free" as PlanId,
     monthlyPrice: "₹0",
     yearlyPrice: "₹0",
     billing: "forever",
@@ -44,6 +50,7 @@ const pricingTiers: PricingTier[] = [
   },
   {
     name: "Professional",
+    planId: "professional" as PlanId,
     monthlyPrice: "₹250",
     yearlyPrice: "₹2,500",
     billing: "per month",
@@ -63,6 +70,7 @@ const pricingTiers: PricingTier[] = [
   },
   {
     name: "Enterprise",
+    planId: "enterprise" as PlanId,
     monthlyPrice: "₹4,999",
     yearlyPrice: "₹49,990",
     billing: "per month",
@@ -85,6 +93,22 @@ const pricingTiers: PricingTier[] = [
 
 export default function Pricing() {
   const [isYearly, setIsYearly] = useState(false);
+  const { isSignedIn } = useAuth();
+  const router = useRouter();
+  const { subscription, refetch: refetchSubscription } = useSubscription();
+  const { initiateCheckout, loading: checkoutLoading, result: checkoutResult, clearResult } = useRazorpayCheckout();
+  const [activePlanLoading, setActivePlanLoading] = useState<string | null>(null);
+
+  const handlePaidCta = async (planId: PlanId) => {
+    setActivePlanLoading(planId);
+    clearResult();
+    const billingCycle: BillingCycle = isYearly ? "yearly" : "monthly";
+    const res = await initiateCheckout(planId, billingCycle);
+    setActivePlanLoading(null);
+    if (res?.success) {
+      refetchSubscription();
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -138,40 +162,163 @@ export default function Pricing() {
             </SectionContainer>
 
             <div className="mt-12 grid grid-cols-1 items-start gap-6 lg:grid-cols-3">
-              {pricingTiers.map((tier, index) => (
-                <SectionContainer key={tier.name} delay={0.1 * (index + 1)}>
-                  <PricingCard
-                    name={tier.name}
-                    price={isYearly ? tier.yearlyPrice : tier.monthlyPrice}
-                    billing={isYearly ? tier.yearlyBilling : tier.billing}
-                    description={tier.description}
-                    features={tier.features}
-                    cta={tier.cta}
-                    highlighted={tier.highlighted}
-                    ctaAction={
-                      <SignUpButton mode="modal">
-                        <motion.div
-                          whileHover={{ scale: 1.03 }}
-                          whileTap={{ scale: 0.97 }}
+              {pricingTiers.map((tier, index) => {
+                const isCurrentPlan =
+                  isSignedIn &&
+                  subscription?.plan === tier.planId &&
+                  tier.planId !== "free";
+                const isPaid = tier.planId !== "free";
+                const isLoadingThis =
+                  checkoutLoading && activePlanLoading === tier.planId;
+
+                let ctaElement: React.ReactNode;
+
+                if (isCurrentPlan) {
+                  ctaElement = (
+                    <Button
+                      size="lg"
+                      className="w-full rounded-xl"
+                      variant="outline"
+                      disabled
+                    >
+                      Current Plan
+                    </Button>
+                  );
+                } else if (isSignedIn && isPaid) {
+                  ctaElement = (
+                    <motion.div
+                      whileHover={isLoadingThis ? {} : { scale: 1.03 }}
+                      whileTap={isLoadingThis ? {} : { scale: 0.97 }}
+                    >
+                      <Button
+                        size="lg"
+                        className={`w-full rounded-xl ${
+                          tier.highlighted
+                            ? "bg-gradient-to-r from-purple-500 to-indigo-500 text-white shadow-md hover:from-purple-600 hover:to-indigo-600"
+                            : ""
+                        }`}
+                        variant={tier.highlighted ? "default" : "outline"}
+                        disabled={isLoadingThis}
+                        onClick={() => handlePaidCta(tier.planId)}
+                      >
+                        {isLoadingThis ? (
+                          <span className="flex items-center gap-2">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Processing...
+                          </span>
+                        ) : (
+                          tier.cta
+                        )}
+                      </Button>
+                    </motion.div>
+                  );
+                } else if (isSignedIn && !isPaid) {
+                  ctaElement = (
+                    <motion.div
+                      whileHover={{ scale: 1.03 }}
+                      whileTap={{ scale: 0.97 }}
+                    >
+                      <Button
+                        size="lg"
+                        className="w-full rounded-xl"
+                        variant="outline"
+                        onClick={() => router.push("/dashboard")}
+                      >
+                        Go to Dashboard
+                      </Button>
+                    </motion.div>
+                  );
+                } else {
+                  ctaElement = (
+                    <SignUpButton mode="modal">
+                      <motion.div
+                        whileHover={{ scale: 1.03 }}
+                        whileTap={{ scale: 0.97 }}
+                      >
+                        <Button
+                          size="lg"
+                          className={`w-full rounded-xl ${
+                            tier.highlighted
+                              ? "bg-gradient-to-r from-purple-500 to-indigo-500 text-white shadow-md hover:from-purple-600 hover:to-indigo-600"
+                              : ""
+                          }`}
+                          variant={tier.highlighted ? "default" : "outline"}
                         >
-                          <Button
-                            size="lg"
-                            className={`w-full rounded-xl ${
-                              tier.highlighted
-                                ? "bg-gradient-to-r from-purple-500 to-indigo-500 text-white shadow-md hover:from-purple-600 hover:to-indigo-600"
-                                : ""
-                            }`}
-                            variant={tier.highlighted ? "default" : "outline"}
-                          >
-                            {tier.cta}
-                          </Button>
-                        </motion.div>
-                      </SignUpButton>
-                    }
-                  />
-                </SectionContainer>
-              ))}
+                          {tier.cta}
+                        </Button>
+                      </motion.div>
+                    </SignUpButton>
+                  );
+                }
+
+                return (
+                  <SectionContainer key={tier.name} delay={0.1 * (index + 1)}>
+                    <div className="relative">
+                      {isCurrentPlan && (
+                        <div className="absolute -top-3 right-4 z-10">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500 px-3 py-0.5 text-xs font-semibold text-white shadow-sm">
+                            <CheckCircle2 className="h-3 w-3" />
+                            Current Plan
+                          </span>
+                        </div>
+                      )}
+                      <PricingCard
+                        name={tier.name}
+                        price={isYearly ? tier.yearlyPrice : tier.monthlyPrice}
+                        billing={isYearly ? tier.yearlyBilling : tier.billing}
+                        description={tier.description}
+                        features={tier.features}
+                        cta={tier.cta}
+                        highlighted={tier.highlighted}
+                        ctaAction={ctaElement}
+                      />
+                    </div>
+                  </SectionContainer>
+                );
+              })}
             </div>
+
+            {/* Payment result feedback */}
+            <AnimatePresence>
+              {checkoutResult && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="mt-6 flex justify-center"
+                >
+                  <div
+                    className={`inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium shadow-sm ${
+                      checkoutResult.success
+                        ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400"
+                        : checkoutResult.error === "Payment cancelled"
+                          ? "bg-muted text-muted-foreground"
+                          : "bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-400"
+                    }`}
+                  >
+                    {checkoutResult.success ? (
+                      <>
+                        <CheckCircle2 className="h-4 w-4" />
+                        Payment successful! Your plan is now active.
+                      </>
+                    ) : checkoutResult.error === "Payment cancelled" ? (
+                      "Payment cancelled."
+                    ) : (
+                      <>
+                        <XCircle className="h-4 w-4" />
+                        {checkoutResult.error || "Payment failed. Please try again."}
+                      </>
+                    )}
+                    <button
+                      onClick={clearResult}
+                      className="ml-2 text-xs underline opacity-70 hover:opacity-100"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             {/* Trust signals */}
             <SectionContainer delay={0.5}>

@@ -43,8 +43,23 @@ export function getDb(): Database.Database {
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
+    CREATE TABLE IF NOT EXISTS subscriptions (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      razorpay_order_id TEXT NOT NULL,
+      razorpay_payment_id TEXT NOT NULL,
+      plan TEXT NOT NULL,
+      billing_cycle TEXT NOT NULL,
+      amount INTEGER NOT NULL,
+      currency TEXT NOT NULL DEFAULT 'INR',
+      status TEXT NOT NULL DEFAULT 'active',
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      expires_at TEXT NOT NULL
+    );
+
     CREATE UNIQUE INDEX IF NOT EXISTS idx_snapshots_user_date ON snapshots(user_id, date);
     CREATE INDEX IF NOT EXISTS idx_statements_user ON statements(user_id);
+    CREATE INDEX IF NOT EXISTS idx_subscriptions_user ON subscriptions(user_id);
   `);
 
   return db;
