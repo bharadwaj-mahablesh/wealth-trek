@@ -36,47 +36,51 @@ export async function POST(request: NextRequest) {
   const body = await request.json();
   const { date, totalAssets, totalLiabilities, netWorth, entries } = body;
 
-  const db = getDb();
+  try {
+    const db = getDb();
 
-  const existing = db
-    .prepare("SELECT id FROM snapshots WHERE user_id = ? AND date = ?")
-    .get(userId, date) as { id: string } | undefined;
+    const existing = db
+      .prepare("SELECT id FROM snapshots WHERE user_id = ? AND date = ?")
+      .get(userId, date) as { id: string } | undefined;
 
-  if (existing) {
+    if (existing) {
+      db.prepare(
+        `UPDATE snapshots SET total_assets = ?, total_liabilities = ?, net_worth = ?, entries_json = ?, created_at = datetime('now') WHERE id = ? AND user_id = ?`
+      ).run(totalAssets, totalLiabilities, netWorth, JSON.stringify(entries), existing.id, userId);
+
+      return NextResponse.json({
+        snapshot: {
+          id: existing.id,
+          date,
+          totalAssets,
+          totalLiabilities,
+          netWorth,
+          entries,
+          createdAt: new Date().toISOString(),
+        },
+      });
+    }
+
+    const id = uuidv4();
     db.prepare(
-      `UPDATE snapshots SET total_assets = ?, total_liabilities = ?, net_worth = ?, entries_json = ?, created_at = datetime('now') WHERE id = ? AND user_id = ?`
-    ).run(totalAssets, totalLiabilities, netWorth, JSON.stringify(entries), existing.id, userId);
+      `INSERT INTO snapshots (id, user_id, date, total_assets, total_liabilities, net_worth, entries_json) VALUES (?, ?, ?, ?, ?, ?, ?)`
+    ).run(id, userId, date, totalAssets, totalLiabilities, netWorth, JSON.stringify(entries));
 
-    return NextResponse.json({
-      snapshot: {
-        id: existing.id,
-        date,
-        totalAssets,
-        totalLiabilities,
-        netWorth,
-        entries,
-        createdAt: new Date().toISOString(),
+    return NextResponse.json(
+      {
+        snapshot: {
+          id,
+          date,
+          totalAssets,
+          totalLiabilities,
+          netWorth,
+          entries,
+          createdAt: new Date().toISOString(),
+        },
       },
-    });
+      { status: 201 }
+    );
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message || "Failed to create snapshot" }, { status: 500 });
   }
-
-  const id = uuidv4();
-  db.prepare(
-    `INSERT INTO snapshots (id, user_id, date, total_assets, total_liabilities, net_worth, entries_json) VALUES (?, ?, ?, ?, ?, ?, ?)`
-  ).run(id, userId, date, totalAssets, totalLiabilities, netWorth, JSON.stringify(entries));
-
-  return NextResponse.json(
-    {
-      snapshot: {
-        id,
-        date,
-        totalAssets,
-        totalLiabilities,
-        netWorth,
-        entries,
-        createdAt: new Date().toISOString(),
-      },
-    },
-    { status: 201 }
-  );
 }
