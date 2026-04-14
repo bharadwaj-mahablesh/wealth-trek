@@ -3,7 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/db";
 import { v4 as uuidv4 } from "uuid";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const { userId } = await auth();
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

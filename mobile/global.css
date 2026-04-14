@@ -1,0 +1,77 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-background: #f7f8fa;
+    --color-foreground: #1a1e24;
+    --color-card: #ffffff;
+    --color-card-foreground: #1a1e24;
+    --color-primary: #1a6b8a;
+    --color-primary-foreground: #ffffff;
+    --color-secondary: #e8ecf1;
+    --color-secondary-foreground: #1a1e24;
+    --color-muted: #eef0f4;
+    --color-muted-foreground: #64748b;
+    --color-accent: #2a7a5a;
+    --color-accent-foreground: #ffffff;
+    --color-destructive: #dc2626;
+    --color-success: #16a34a;
+    --color-border: #d8dde5;
+    --color-input: #d8dde5;
+    --color-ring: rgba(26, 107, 138, 0.4);
+  }
+
+  .dark {
+    --color-background: #0f1115;
+    --color-foreground: #e8eaf0;
+    --color-card: #1a1e24;
+    --color-card-foreground: #e8eaf0;
+    --color-primary: #6ba3b8;
+    --color-primary-foreground: #0f1115;
+    --color-secondary: #1e2228;
+    --color-secondary-foreground: #e8eaf0;
+    --color-muted: #1e2228;
+    --color-muted-foreground: #8b9099;
+    --color-accent: #6aab8a;
+    --color-accent-foreground: #0f1115;
+    --color-destructive: #7f1d1d;
+    --color-success: #14532d;
+    --color-border: #252a32;
+    --color-input: #252a32;
+    --color-ring: rgba(107, 163, 184, 0.5);
+  }
+}
+
+@layer utilities {
+  .surface-card {
+    @apply bg-card border border-border shadow-sm;
+  }
+
+  .text-brand-gradient {
+    background: linear-gradient(
+      135deg,
+      #1a6b8a 0%,
+      #3a8aaa 50%,
+      #2a7a5a 100%
+    );
+    background-size: 200% auto;
+    color: transparent;
+    background-clip: text;
+    -webkit-background-clip: text;
+  }
+
+  .dark .text-brand-gradient {
+    background: linear-gradient(
+      135deg,
+      #6ba3b8 0%,
+      #8bc3d8 50%,
+      #6aab8a 100%
+    );
+    background-size: 200% auto;
+    color: transparent;
+    background-clip: text;
+    -webkit-background-clip: text;
+  }
+}
