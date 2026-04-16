@@ -91,6 +91,7 @@ export interface InsightResult {
     info: number;
   };
   domains: Record<InsightDomain, InsightItem[]>;
+  computedAt: string;
 }
 
 export const STATEMENT_TYPE_PRESETS: StatementTypePreset[] = [

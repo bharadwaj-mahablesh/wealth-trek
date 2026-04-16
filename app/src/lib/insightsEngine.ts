@@ -753,5 +753,6 @@ export function computeAllInsights(
   return {
     domains,
     summary: { total, critical, warnings, info: total - critical - warnings },
+    computedAt: new Date().toISOString(),
   };
 }
